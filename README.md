@@ -2,65 +2,79 @@
 A machine learning model on the January Flight Delay dataset, using flight schedule, route, carrier, and distance features to classify whether a flight would be delayed.
 
 
-## Impact of Class Weighting on Flight Delay Prediction
+## Model Performance Progression
 
-When predicting **flight delays**, the dataset is heavily imbalanced: most flights are on time, and only a minority are delayed.
-This imbalance caused the initial models to favor the majority class (on-time flights), achieving high accuracy but very poor recall for delays.
+We trained Logistic Regression, Random Forest, and XGBoost models to predict **arrival and departure delays (≥15 minutes)**.
 
-To address this, we applied **class balancing techniques**:
+### 1. Baseline (no class weights, raw HHMM times)
 
-* `class_weight="balanced"` for Logistic Regression and Random Forest
-* `scale_pos_weight` for XGBoost
+* **Logistic Regression:**
 
-The results highlight how weighting changes model behavior:
+  * Accuracy \~89–90% but very poor recall for delays (\~0.23–0.28).
+  * Strong bias toward the majority “on-time” class.
+  * ROC AUC: \~0.83–0.89.
 
----
+* **Random Forest:**
 
-### **1. Logistic Regression**
+  * Accuracy \~86%.
+  * Detected almost no delays (recall \~0.005).
+  * ROC AUC: \~0.82–0.86.
 
-* **Without weights**:
+* **XGBoost:**
 
-  * Very high accuracy (\~0.89–0.90)
-  * Very low recall for delays (\~0.23–0.28) → barely flagged delayed flights
-* **With weights**:
-
-  * Accuracy dropped (\~0.72–0.75)
-  * Recall jumped dramatically (\~0.67–0.72) → model actually flagged most delays
-  * Tradeoff: more false positives, but much more useful in practice
-
-**Takeaway:** Class weighting transformed logistic regression from an "always on-time" predictor into a usable baseline model for detecting delays.
+  * Best baseline.
+  * Accuracy \~92–94%, recall for delays \~0.51–0.61.
+  * ROC AUC: \~0.92–0.94.
 
 ---
 
-### **2. Random Forest**
+### 2.With Class Weights
 
-* **Without weights**:
+Balancing the minority class (delays) improved recall significantly but lowered accuracy.
 
-  * High accuracy (\~0.86)
-  * Recall for delays nearly zero (\~0.00–0.01) → useless for minority class
-* **With weights**:
+* **Logistic Regression:**
 
-  * Accuracy dropped (\~0.70–0.73)
-  * Recall surged (\~0.68–0.76)
-  * Precision decreased, but F1-score improved for delayed flights
+  * Recall jumped to \~0.67–0.72, accuracy dropped to \~72–75%.
+  * ROC AUC: \~0.77–0.81.
 
-**Takeaway:** Random Forest needed class weighting to even recognize delays. With weights, it became far more balanced, though less precise than XGBoost.
+* **Random Forest:**
+
+  * Recall \~0.68–0.76, accuracy \~70–73%.
+  * ROC AUC: \~0.79–0.81.
+
+* **XGBoost (with `scale_pos_weight`):**
+
+  * Recall \~0.77–0.78 while maintaining strong accuracy (\~89–91%).
+  * ROC AUC stayed very high (\~0.92–0.94).
+
+---
+
+### 3. With Class Weights + Cyclical Time Encoding (sin/cos for DEP\_TIME & ARR\_TIME)
+
+Replacing raw HHMM times with **sine/cosine encodings** gave models a better sense of the 24-hour cycle.
+
+* **Logistic Regression:**
+
+  * Accuracy \~71–74%, recall \~0.64–0.69.
+  * ROC AUC: \~0.74–0.78.
+  * Much stronger at identifying delays than baseline.
+
+* **Random Forest:**
+
+  * Accuracy \~76–77%, recall \~0.72–0.79.
+  * ROC AUC: \~0.83–0.86.
+  * Significant gains in recall without too much accuracy loss.
+
+* **XGBoost:**
+
+  * Accuracy \~89–91%, recall \~0.77–0.79.
+  * ROC AUC: \~0.92–0.94.
+  * Maintained strong overall performance and best balance between precision & recall.
 
 ---
 
-### **3. XGBoost**
+### Key Insights
 
-* **Without weights**:
-
-  * Already strong performance out-of-the-box
-  * Accuracy \~0.93–0.94, Recall \~0.51–0.61, ROC AUC \~0.92–0.94
-* **With `scale_pos_weight`**:
-
-  * Accuracy slightly reduced (\~0.89–0.91)
-  * Recall jumped significantly (\~0.78 for both arrival and departure delays)
-  * ROC AUC remained excellent (\~0.92–0.94)
-  * Precision held steady (\~0.56–0.64), keeping F1 balanced
-
-**Takeaway:** XGBoost performed best overall. With proper weighting, it achieved the highest recall **without sacrificing too much accuracy**, making it the most reliable model for predicting flight delays.
-
----
+* **Baseline:** All models were biased toward “on-time,” missing many delays.
+* **Class Weights:** Improved recall, especially for Logistic Regression and Random Forest, though at the cost of accuracy.
+* **Class Weights + Cyclical Encoding:** Further boosted recall and overall balance, particularly for Logistic Regression and Random Forest, while XGBoost remained the best all-around model.
